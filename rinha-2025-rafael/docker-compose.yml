@@ -1,0 +1,71 @@
+version: '3.9'
+
+# Define as redes que nossos serviços usarão.
+networks:
+  # A rede interna para a comunicação entre nossos serviços (api, nginx, redis).
+  rinha-network:
+    driver: bridge
+  # A rede externa, criada pelo docker-compose dos Payment Processors.
+  payment-processor-network:
+    external: true
+    name: rinha-2025-payment-processor_default
+
+services:
+  # Serviço 1: Load Balancer (Nginx)
+  nginx:
+    image: nginx:1.25.2-alpine
+    ports:
+      - "9999:9999"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - rinha-network
+    depends_on:
+      - backend-1
+      - backend-2
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10" # 10% de uma CPU
+          memory: "25MB"
+
+  # Serviço 2: Cache e Fila (Redis)
+  redis:
+    image: redis:7.2-alpine
+    networks:
+      - rinha-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.20" # 20% de uma CPU
+          memory: "50MB"
+
+  # Serviço 3: Instância 1 da nossa API
+  backend-1:
+    build: .
+    hostname: backend-1
+    networks:
+      - rinha-network
+      - payment-processor-network
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.60" # 60% de uma CPU
+          memory: "137MB"
+
+  # Serviço 4: Instância 2 da nossa API
+  backend-2:
+    build: .
+    hostname: backend-2
+    networks:
+      - rinha-network
+      - payment-processor-network
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.60" # 60% de uma CPU
+          memory: "138MB" # Pequena diferença para somar 350MB no total
