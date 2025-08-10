@@ -1,0 +1,11 @@
+@rinha_2025_rafael_HostAddress = http://localhost:5182
+
+GET {{rinha_2025_rafael_HostAddress}}/todos/
+Accept: application/json
+
+###
+
+GET {{rinha_2025_rafael_HostAddress}}/todos/1
+Accept: application/json
+
+###
