@@ -80,5 +80,17 @@ namespace rinha_2025_rafael.Infrastructure.Cache
 
             return new PaymentSummaryResponse(defaultDetails, fallbackDetails);
         }
+
+        /// <summary>
+        /// Reenfileira um pagamento no início da fila para que ele seja processado novamente.
+        /// Usa LPUSH para garantir que ele tenha prioridade na próxima iteração do worker.
+        /// </summary>
+        public async Task RequeuePaymentAsync(PaymentRequest request)
+        {
+            var payload = JsonSerializer.Serialize(request);
+
+            // LPUSH para colocar de volta no início (à esquerda).
+            await _db.ListLeftPushAsync(PaymentQueueKey, payload);
+        }
     }
 }

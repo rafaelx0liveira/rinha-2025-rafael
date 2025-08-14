@@ -8,5 +8,6 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         Task EnqueuePaymentAsync(PaymentRequest request);
         Task UpdateSummaryAsync(ProcessorType processorType, decimal amount);
         Task<PaymentSummaryResponse> GetSummaryAsync();
+        Task RequeuePaymentAsync(PaymentRequest paymentRequest);
     }
 }

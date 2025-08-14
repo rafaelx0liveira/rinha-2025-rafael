@@ -98,7 +98,10 @@ namespace rinha_2025_rafael.Workers
                             if (!processed)
                             {
                                 _logger.LogWarning($"Ambos os processadores indisponíveis. Reenfileirando pagamento {paymentRequest.CorrelationId}");
-                                // TODO: Implementar lógica de reenfileirar (ex: LPUSH para o início da fila)
+
+                                await redisService.RequeuePaymentAsync(paymentRequest);
+
+                                await Task.Delay(100, stoppingToken);
                             }
                         }
                     }
