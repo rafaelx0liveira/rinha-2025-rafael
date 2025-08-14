@@ -1,9 +1,11 @@
 ﻿using rinha_2025_rafael.Application.EnqueuePaymentUseCase;
 using rinha_2025_rafael.Application.GetSummaryUseCase;
 using rinha_2025_rafael.Infrastructure.Cache;
+using rinha_2025_rafael.Infrastructure.Clients;
 using rinha_2025_rafael.Infrastructure.Resilience;
 using rinha_2025_rafael.Workers;
 using StackExchange.Redis;
+using System.Net.Security;
 
 namespace rinha_2025_rafael.CrossCutting
 {
@@ -18,7 +20,8 @@ namespace rinha_2025_rafael.CrossCutting
                 .AddRedis(configuration)
                 .AddWorker()
                 .AddCircuitBreaker()
-                .AddHealthCheckSentinel();
+                .AddHealthCheckSentinel()
+                .AddClients();
 
             return services;
         }
@@ -59,6 +62,21 @@ namespace rinha_2025_rafael.CrossCutting
         private static IServiceCollection AddHealthCheckSentinel(this IServiceCollection services)
         {
             services.AddHostedService<HealthCheckSentinel>();
+
+            return services;
+        }
+
+        private static IServiceCollection AddClients(this IServiceCollection services)
+        {
+            services.AddHttpClient<IPaymentProcessorClient, PaymentProcessorClient>()
+                .ConfigurePrimaryHttpMessageHandler(() =>
+                {
+                    return new HttpClientHandler
+                    {
+                        // Permite que o cliente se conecte a serviços HTTP em ves de HTTPS, por conta da comunicação interna entre containers.
+                        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                    };
+                });
 
             return services;
         }

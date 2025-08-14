@@ -1,5 +1,6 @@
 ﻿using rinha_2025_rafael.Domain;
 using rinha_2025_rafael.Domain.Enum;
+using rinha_2025_rafael.Infrastructure.Clients;
 using rinha_2025_rafael.Infrastructure.Resilience;
 using StackExchange.Redis;
 using System.Text.Json;
@@ -33,8 +34,7 @@ namespace rinha_2025_rafael.Workers
                 using var scope = _serviceProvider.CreateScope();
                 var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
                 var circuitBreaker = scope.ServiceProvider.GetRequiredService<ICircuitBreakerService>();
-
-                // TODO: Injetar o PaymentProcessorClient
+                var client = scope.ServiceProvider.GetRequiredService<IPaymentProcessorClient>();
 
                 try
                 {
@@ -56,9 +56,13 @@ namespace rinha_2025_rafael.Workers
                             {
                                 try
                                 {
-                                    // TODO: Chamar o processador DEFAULT via PaymentProcessorClient
-                                    // Se sucesso:
+                                    await client.ProcessPaymentAsync(paymentRequest, ProcessorType.DEFAULT);
+
                                     await circuitBreaker.RecordSuccessAsync(ProcessorType.DEFAULT);
+
+                                    _logger.LogInformation($"Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Default.");
+
+                                    // TODO: Atualizar o summary do Default no Redis
                                     processed = true;
                                 }
                                 catch (Exception)
@@ -73,14 +77,17 @@ namespace rinha_2025_rafael.Workers
                             {
                                 try
                                 {
-                                    // TODO: Chamar o processador Fallback via PaymentProcessorClient
-                                    // Se sucesso:
+                                    await client.ProcessPaymentAsync(paymentRequest, ProcessorType.FALLBACK);
+
                                     await circuitBreaker.RecordSuccessAsync(ProcessorType.FALLBACK);
+
+                                    _logger.LogInformation($"Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Fallback.");
+
+                                    // TODO: Atualizar o summary do Fallback no Redis
                                     processed = true;
                                 }
                                 catch (Exception)
                                 {
-                                    // Se falhar:
                                     await circuitBreaker.RecordFailureAsync(ProcessorType.FALLBACK);
                                 }
                             }
