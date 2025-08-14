@@ -1,5 +1,9 @@
-﻿using rinha_2025_rafael.Domain;
+﻿using rinha_2025_rafael.CrossCutting;
+using rinha_2025_rafael.Domain;
 using rinha_2025_rafael.Domain.Enum;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 
 namespace rinha_2025_rafael.Infrastructure.Clients
 {
@@ -39,7 +43,11 @@ namespace rinha_2025_rafael.Infrastructure.Clients
             var uri = GetProcessorUri(processorType, "/payments");
             _logger.LogInformation($"Enviando pagamento {request.CorrelationId} para {uri}");
 
-            var response = await _httpClient.PostAsJsonAsync(uri, processorPayload);
+            var jsonPayload = JsonSerializer.Serialize(processorPayload, JsonContext.Default.PaymentProcessorPayload);
+
+            using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(uri, content);
 
             // Lança uma exceção se a resposta não for de sucesso (2xx).
             // Será capturado pelo try/catch do Worker, e então acionará o Circuit Breaker.
@@ -52,7 +60,9 @@ namespace rinha_2025_rafael.Infrastructure.Clients
 
             try
             {
-                var healthResponse = await _httpClient.GetFromJsonAsync<HealthCheckResponse>(uri);
+                var responseStream = await _httpClient.GetStreamAsync(uri);
+
+                var healthResponse = await JsonSerializer.DeserializeAsync(responseStream, JsonContext.Default.HealthCheckResponse);
                 return healthResponse;
             }
             catch (Exception ex)

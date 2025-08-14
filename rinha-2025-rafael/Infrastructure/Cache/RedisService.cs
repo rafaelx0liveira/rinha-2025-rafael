@@ -1,4 +1,5 @@
-﻿using rinha_2025_rafael.Domain;
+﻿using rinha_2025_rafael.CrossCutting;
+using rinha_2025_rafael.Domain;
 using rinha_2025_rafael.Domain.Enum;
 using StackExchange.Redis;
 using System.Globalization;
@@ -19,7 +20,7 @@ namespace rinha_2025_rafael.Infrastructure.Cache
 
         public async Task EnqueuePaymentAsync(PaymentRequest request)
         {
-            var payload = JsonSerializer.Serialize(request);
+            var payload = JsonSerializer.Serialize(request, JsonContext.Default.PaymentRequest);
 
             // Adiciona elemento no início (à esquerda) para o Worker pegar o do final (à direita).
             await _db.ListLeftPushAsync(PaymentQueueKey, payload);
@@ -87,7 +88,7 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         /// </summary>
         public async Task RequeuePaymentAsync(PaymentRequest request)
         {
-            var payload = JsonSerializer.Serialize(request);
+            var payload = JsonSerializer.Serialize(request, JsonContext.Default.PaymentRequest);
 
             // LPUSH para colocar de volta no início (à esquerda).
             await _db.ListLeftPushAsync(PaymentQueueKey, payload);

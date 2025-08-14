@@ -1,4 +1,5 @@
-﻿using rinha_2025_rafael.Domain;
+﻿using rinha_2025_rafael.CrossCutting;
+using rinha_2025_rafael.Domain;
 using rinha_2025_rafael.Domain.Enum;
 using rinha_2025_rafael.Infrastructure.Cache;
 using rinha_2025_rafael.Infrastructure.Clients;
@@ -44,7 +45,7 @@ namespace rinha_2025_rafael.Workers
 
                     if (redisValue.HasValue)
                     {
-                        var paymentRequest = JsonSerializer.Deserialize<PaymentRequest>(redisValue!);
+                        var paymentRequest = JsonSerializer.Deserialize(redisValue!, JsonContext.Default.PaymentRequest);
                         
                         if (paymentRequest != null)
                         {

@@ -5,7 +5,6 @@ using rinha_2025_rafael.Infrastructure.Clients;
 using rinha_2025_rafael.Infrastructure.Resilience;
 using rinha_2025_rafael.Workers;
 using StackExchange.Redis;
-using System.Net.Security;
 
 namespace rinha_2025_rafael.CrossCutting
 {
@@ -15,13 +14,25 @@ namespace rinha_2025_rafael.CrossCutting
             this IServiceCollection services,
             IConfiguration configuration)
         {
+
             services
+                .AddJsonSerialization()
                 .AddUseCases()
                 .AddRedis(configuration)
                 .AddWorker()
                 .AddCircuitBreaker()
                 .AddHealthCheckSentinel()
                 .AddClients();
+
+            return services;
+        }
+
+        private static IServiceCollection AddJsonSerialization(this IServiceCollection services)
+        {
+            services.ConfigureHttpJsonOptions(options =>
+            {
+                options.SerializerOptions.TypeInfoResolverChain.Insert(0, JsonContext.Default);
+            });
 
             return services;
         }
@@ -47,7 +58,7 @@ namespace rinha_2025_rafael.CrossCutting
 
         private static IServiceCollection AddWorker(this IServiceCollection services)
         {
-            services.AddScoped<PaymentProcessingWorker>();
+            services.AddHostedService<PaymentProcessingWorker>();
 
             return services;
         }
