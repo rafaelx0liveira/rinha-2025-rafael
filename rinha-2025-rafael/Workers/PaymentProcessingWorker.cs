@@ -1,5 +1,6 @@
 ﻿using rinha_2025_rafael.Domain;
 using rinha_2025_rafael.Domain.Enum;
+using rinha_2025_rafael.Infrastructure.Cache;
 using rinha_2025_rafael.Infrastructure.Clients;
 using rinha_2025_rafael.Infrastructure.Resilience;
 using StackExchange.Redis;
@@ -35,6 +36,7 @@ namespace rinha_2025_rafael.Workers
                 var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
                 var circuitBreaker = scope.ServiceProvider.GetRequiredService<ICircuitBreakerService>();
                 var client = scope.ServiceProvider.GetRequiredService<IPaymentProcessorClient>();
+                var redisService = scope.ServiceProvider.GetRequiredService<IRedisService>();
 
                 try
                 {
@@ -62,7 +64,7 @@ namespace rinha_2025_rafael.Workers
 
                                     _logger.LogInformation($"Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Default.");
 
-                                    // TODO: Atualizar o summary do Default no Redis
+                                    await redisService.UpdateSummaryAsync(ProcessorType.DEFAULT, paymentRequest.Amount);
                                     processed = true;
                                 }
                                 catch (Exception)
@@ -83,7 +85,7 @@ namespace rinha_2025_rafael.Workers
 
                                     _logger.LogInformation($"Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Fallback.");
 
-                                    // TODO: Atualizar o summary do Fallback no Redis
+                                    await redisService.UpdateSummaryAsync(ProcessorType.FALLBACK, paymentRequest.Amount);
                                     processed = true;
                                 }
                                 catch (Exception)
