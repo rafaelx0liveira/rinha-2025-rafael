@@ -4,10 +4,10 @@ using rinha_2025_rafael.Infrastructure.Cache;
 namespace rinha_2025_rafael.Application.EnqueuePaymentUseCase
 {
     public class EnqueuePaymentUseCase (
-            RedisService redisService
+            IRedisService redisService
         ) : IEnqueuePaymentUseCase
     {
-        private readonly RedisService _redisService = redisService;
+        private readonly IRedisService _redisService = redisService;
 
         public async Task ExecuteAsync(PaymentRequest request)
         {
