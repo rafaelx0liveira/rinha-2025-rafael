@@ -34,7 +34,9 @@ namespace rinha_2025_rafael.Endpoints
                 var summary = await _getSummaryUseCase.ExecuteAsync(from, to);
 
                 return Results.Ok(summary);
-            });
+            })
+                .WithName("GetPayments")
+                .WithDescription("Retorna um resumo dos pagamentos processados.");
         }
     }
 }
