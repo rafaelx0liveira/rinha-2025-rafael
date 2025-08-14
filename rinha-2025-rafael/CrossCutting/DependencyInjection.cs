@@ -36,7 +36,7 @@ namespace rinha_2025_rafael.CrossCutting
 
         private static IServiceCollection AddRedis(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration["Redis:ConnectionString"] ?? throw new ArgumentNullException("ConnectionString is missing");
+            var connectionString = configuration["Redis:ConnectionString"] ?? throw new ArgumentNullException("Redis ConnectionString is missing");
 
             services.AddSingleton<IRedisService, RedisService>();
             services.AddSingleton<IConnectionMultiplexer>(

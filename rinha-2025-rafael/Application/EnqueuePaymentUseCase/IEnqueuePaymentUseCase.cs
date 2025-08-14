@@ -1,7 +1,9 @@
-﻿namespace rinha_2025_rafael.Application.EnqueuePaymentUseCase
+﻿using rinha_2025_rafael.Domain;
+
+namespace rinha_2025_rafael.Application.EnqueuePaymentUseCase
 {
     public interface IEnqueuePaymentUseCase
     {
-        Task
+        Task ExecuteAsync(PaymentRequest request);
     }
 }

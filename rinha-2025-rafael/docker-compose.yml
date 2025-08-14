@@ -1,17 +1,13 @@
 version: '3.9'
 
-# Define as redes que nossos serviços usarão.
 networks:
-  # A rede interna para a comunicação entre nossos serviços (api, nginx, redis).
   rinha-network:
     driver: bridge
-  # A rede externa, criada pelo docker-compose dos Payment Processors.
   payment-processor-network:
     external: true
-    name: rinha-2025-payment-processor_default
+    name: payment-processor
 
 services:
-  # Serviço 1: Load Balancer (Nginx)
   nginx:
     image: nginx:1.25.2-alpine
     ports:
@@ -26,10 +22,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.10" # 10% de uma CPU
+          cpus: "0.10"
           memory: "25MB"
 
-  # Serviço 2: Cache e Fila (Redis)
   redis:
     image: redis:7.2-alpine
     networks:
@@ -37,10 +32,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.20" # 20% de uma CPU
+          cpus: "0.20"
           memory: "50MB"
 
-  # Serviço 3: Instância 1 da nossa API
   backend-1:
     build: .
     hostname: backend-1
@@ -52,10 +46,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.60" # 60% de uma CPU
+          cpus: "0.60"
           memory: "137MB"
+    environment:
+       - Redis__ConnectionString=redis:6379
+       - PaymentProcessorUri__Default=http://payment-processor-default:8080
+       - PaymentProcessorUri__Fallback=http://payment-processor-fallback:8080
 
-  # Serviço 4: Instância 2 da nossa API
   backend-2:
     build: .
     hostname: backend-2
@@ -67,5 +64,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.60" # 60% de uma CPU
-          memory: "138MB" # Pequena diferença para somar 350MB no total
+          cpus: "0.60"
+          memory: "138MB"
+    environment:
+       - Redis__ConnectionString=redis:6379
+       - PaymentProcessorUri__Default=http://payment-processor-default:8080
+       - PaymentProcessorUri__Fallback=http://payment-processor-fallback:8080 
