@@ -9,15 +9,18 @@ namespace rinha_2025_rafael.Infrastructure.Clients
 {
     public class PaymentProcessorClient : IPaymentProcessorClient
     {
-        private readonly HttpClient _httpClient;
         private readonly ILogger<PaymentProcessorClient> _logger;
+        private readonly JsonSerializerOptions _jsonOptions;
         private readonly IConfiguration _configuration;
+        private readonly HttpClient _httpClient;
 
         private readonly string _defaultUri;
         private readonly string _fallbackUri;
 
-        public PaymentProcessorClient(HttpClient httpClient, ILogger<PaymentProcessorClient> logger,
-            IConfiguration configuration)
+        public PaymentProcessorClient(HttpClient httpClient, 
+            ILogger<PaymentProcessorClient> logger,
+            IConfiguration configuration,
+            JsonSerializerOptions jsonOptions)
         {
             _httpClient = httpClient;
             _logger = logger;
@@ -26,6 +29,7 @@ namespace rinha_2025_rafael.Infrastructure.Clients
             _defaultUri = _configuration["PaymentProcessorUri:Default"] ?? throw new ArgumentNullException("Default URI is missing");
 
             _fallbackUri = _configuration["PaymentProcessorUri:Fallback"] ?? throw new ArgumentNullException("Fallback URI is missing");
+            _jsonOptions = jsonOptions;
         }
 
         /// <summary>
@@ -33,17 +37,17 @@ namespace rinha_2025_rafael.Infrastructure.Clients
         /// </summary>
         public async Task ProcessPaymentAsync(PaymentRequest request, ProcessorType processorType)
         {
-            var processorPayload = new
-            {
+            var processorPayload = new PaymentProcessorPayload
+            (
                 request.CorrelationId,
                 request.Amount,
-                RequestedAt = DateTime.UtcNow,
-            };
+                DateTime.UtcNow
+            );
 
             var uri = GetProcessorUri(processorType, "/payments");
             _logger.LogInformation($"[CLIENT] - Enviando pagamento {request.CorrelationId} para {uri}");
 
-            var jsonPayload = JsonSerializer.Serialize(processorPayload, JsonContext.DefaultOptions);
+            var jsonPayload = JsonSerializer.Serialize(processorPayload, _jsonOptions);
 
             using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
@@ -62,7 +66,7 @@ namespace rinha_2025_rafael.Infrastructure.Clients
             {
                 var responseStream = await _httpClient.GetStreamAsync(uri);
 
-                var healthResponse = await JsonSerializer.DeserializeAsync<HealthCheckResponse>(responseStream, JsonContext.DefaultOptions);
+                var healthResponse = await JsonSerializer.DeserializeAsync<HealthCheckResponse>(responseStream, _jsonOptions);
                 return healthResponse;
             }
             catch (Exception ex)

@@ -9,22 +9,26 @@ namespace rinha_2025_rafael.Infrastructure.Cache
 {
     public class RedisService : IRedisService
     {
-        private readonly IDatabase _db;
         private const string PaymentQueueKey = "payments_queue";
+        private readonly JsonSerializerOptions _jsonOptions;
         private const string SummaryHashKey = "summary"; // Chave para hash de resumo
         private readonly ILogger<RedisService> _logger;
+        private readonly IDatabase _db;
 
-        public RedisService(IConnectionMultiplexer redis, ILogger<RedisService> logger)
+        public RedisService(IConnectionMultiplexer redis, 
+            ILogger<RedisService> logger,
+            JsonSerializerOptions jsonOptions)
         {
             _db = redis.GetDatabase();
             _logger = logger;
+            _jsonOptions = jsonOptions;
         }
 
         public async Task EnqueuePaymentAsync(PaymentRequest request)
         {
             _logger.LogInformation($"[REDIS] - Enfileirando pagamento {request.CorrelationId}");
 
-            var payload = JsonSerializer.Serialize(request, JsonContext.DefaultOptions);
+            var payload = JsonSerializer.Serialize(request, _jsonOptions);
 
             // Adiciona elemento no início (à esquerda) para o Worker pegar o do final (à direita).
             await _db.ListLeftPushAsync(PaymentQueueKey, payload);

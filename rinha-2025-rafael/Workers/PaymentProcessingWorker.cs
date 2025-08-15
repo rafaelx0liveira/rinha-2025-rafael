@@ -11,19 +11,22 @@ namespace rinha_2025_rafael.Workers
 {
     public class PaymentProcessingWorker : BackgroundService
     {
-        private readonly ILogger<PaymentProcessingWorker> _logger;
-        private readonly IServiceProvider _serviceProvider;
         private readonly string _paymentQueueKey = "payments_queue";
+        private readonly ILogger<PaymentProcessingWorker> _logger;
+        private readonly JsonSerializerOptions _jsonOptions;
+        private readonly IServiceProvider _serviceProvider;
         private const int DELAY_PROCESSING_AGAIN = 5000;
 
         public PaymentProcessingWorker(
             ILogger<PaymentProcessingWorker> logger,
             IServiceProvider serviceProvider,
-            IConfiguration configuration
+            IConfiguration configuration,
+            JsonSerializerOptions options
         ) : base()
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _jsonOptions = options;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -44,7 +47,7 @@ namespace rinha_2025_rafael.Workers
 
                     if (redisValue.HasValue)
                     {
-                        var paymentRequest = JsonSerializer.Deserialize<PaymentRequest>(redisValue!, JsonContext.DefaultOptions);
+                        var paymentRequest = JsonSerializer.Deserialize<PaymentRequest>(redisValue!, _jsonOptions);
 
                         if (paymentRequest != null)
                         {

@@ -5,6 +5,7 @@ using rinha_2025_rafael.Infrastructure.Clients;
 using rinha_2025_rafael.Infrastructure.Resilience;
 using rinha_2025_rafael.Workers;
 using StackExchange.Redis;
+using System.Text.Json;
 
 namespace rinha_2025_rafael.CrossCutting
 {
@@ -29,9 +30,18 @@ namespace rinha_2025_rafael.CrossCutting
 
         private static IServiceCollection AddJsonSerialization(this IServiceCollection services)
         {
+            var jsonOptions = new JsonSerializerOptions
+            {
+                TypeInfoResolver = JsonContext.Default,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            services.AddSingleton(jsonOptions);
+
             services.ConfigureHttpJsonOptions(options =>
             {
-                options.SerializerOptions.TypeInfoResolverChain.Insert(0, JsonContext.Default);
+                options.SerializerOptions.TypeInfoResolver = jsonOptions.TypeInfoResolver;
+                options.SerializerOptions.PropertyNamingPolicy = jsonOptions.PropertyNamingPolicy;
             });
 
             return services;
