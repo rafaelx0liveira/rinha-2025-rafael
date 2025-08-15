@@ -13,7 +13,7 @@ namespace rinha_2025_rafael.Workers
     {
         private readonly ILogger<PaymentProcessingWorker> _logger;
         private readonly IServiceProvider _serviceProvider;
-        private readonly string _paymentQueueKey;
+        private readonly string _paymentQueueKey = "payments_queue";
         private const int DELAY_PROCESSING_AGAIN = 5000;
 
         public PaymentProcessingWorker(
@@ -24,12 +24,11 @@ namespace rinha_2025_rafael.Workers
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
-            _paymentQueueKey = configuration["Redis:ConnectionString"] ?? throw new ArgumentNullException("ConnectionString is missing");
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Payment Processing Worker iniciado.");
+            _logger.LogInformation("[WORKER] - Payment Processing Worker iniciado.");
 
             while (!stoppingToken.IsCancellationRequested) 
             {
@@ -45,11 +44,11 @@ namespace rinha_2025_rafael.Workers
 
                     if (redisValue.HasValue)
                     {
-                        var paymentRequest = JsonSerializer.Deserialize(redisValue!, JsonContext.Default.PaymentRequest);
-                        
+                        var paymentRequest = JsonSerializer.Deserialize<PaymentRequest>(redisValue!, JsonContext.DefaultOptions);
+
                         if (paymentRequest != null)
                         {
-                            _logger.LogInformation("Processando pagamento: CorrelationId = {CorrelationId}, Amount = {Amount}",
+                            _logger.LogInformation($"[WORKER] - Processando pagamento: CorrelationId = {paymentRequest.CorrelationId}, Amount = {paymentRequest.Amount}",
                             paymentRequest.CorrelationId, paymentRequest.Amount);
 
                             bool processed = false;
@@ -63,14 +62,15 @@ namespace rinha_2025_rafael.Workers
 
                                     await circuitBreaker.RecordSuccessAsync(ProcessorType.DEFAULT);
 
-                                    _logger.LogInformation($"Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Default.");
+                                    _logger.LogInformation($"[WORKER] - Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Default.");
 
                                     await redisService.UpdateSummaryAsync(ProcessorType.DEFAULT, paymentRequest.Amount);
                                     processed = true;
                                 }
-                                catch (Exception)
+                                catch (Exception ex)
                                 {
                                     // Se falhar:
+                                    _logger.LogError($"[WORKER] - Falha ao processar pagamento {paymentRequest.CorrelationId} pelo Default. Erro: {ex}");
                                     await circuitBreaker.RecordFailureAsync(ProcessorType.DEFAULT);
                                 }
                             }
@@ -84,13 +84,14 @@ namespace rinha_2025_rafael.Workers
 
                                     await circuitBreaker.RecordSuccessAsync(ProcessorType.FALLBACK);
 
-                                    _logger.LogInformation($"Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Fallback.");
+                                    _logger.LogInformation($"[WORKER] - Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Fallback.");
 
                                     await redisService.UpdateSummaryAsync(ProcessorType.FALLBACK, paymentRequest.Amount);
                                     processed = true;
                                 }
-                                catch (Exception)
+                                catch (Exception ex)
                                 {
+                                    _logger.LogError($"[WORKER] - Falha ao processar pagamento {paymentRequest.CorrelationId} pelo Fallback. Erro: {ex}");
                                     await circuitBreaker.RecordFailureAsync(ProcessorType.FALLBACK);
                                 }
                             }
@@ -98,7 +99,7 @@ namespace rinha_2025_rafael.Workers
                             // 3. Se ainda não foi procesado (ou seja, ambos falharam) reenfileira o pagamento
                             if (!processed)
                             {
-                                _logger.LogWarning($"Ambos os processadores indisponíveis. Reenfileirando pagamento {paymentRequest.CorrelationId}");
+                                _logger.LogWarning($"[WORKER] - Ambos os processadores indisponíveis. Reenfileirando pagamento {paymentRequest.CorrelationId}");
 
                                 await redisService.RequeuePaymentAsync(paymentRequest);
 
@@ -108,7 +109,7 @@ namespace rinha_2025_rafael.Workers
                     }
                 }
                 catch (Exception ex) {
-                    _logger.LogError(ex, "Erro ao processar pagamento da fila");
+                    _logger.LogError(ex, "[WORKER] - Erro ao processar pagamento da fila");
                     await Task.Delay(DELAY_PROCESSING_AGAIN, stoppingToken);
                 }
             }
