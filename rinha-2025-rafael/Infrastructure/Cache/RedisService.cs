@@ -55,7 +55,7 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         {
             var key = processorType == ProcessorType.DEFAULT ? DefaultPaymentsSetKey : FallbackPaymentsSetKey;
 
-            double score = new DateTimeOffset(timestamp).ToUnixTimeSeconds();
+            double score = new DateTimeOffset(timestamp).ToUnixTimeMilliseconds();
 
             string value = $"{request.CorrelationId}:{request.Amount.ToString(CultureInfo.InvariantCulture)}";
 
@@ -67,8 +67,8 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         /// </summary>
         public async Task<PaymentSummaryResponse> GetSummaryAsync(DateTime? from, DateTime? to)
         {
-            var fromScore = from.HasValue ? new DateTimeOffset(from.Value).ToUnixTimeSeconds() : double.NegativeInfinity;
-            var toScore = to.HasValue ? new DateTimeOffset(to.Value).ToUnixTimeSeconds() : double.PositiveInfinity;
+            var fromScore = from.HasValue ? new DateTimeOffset(from.Value).ToUnixTimeMilliseconds() : double.NegativeInfinity;
+            var toScore = to.HasValue ? new DateTimeOffset(to.Value).ToUnixTimeMilliseconds() : double.PositiveInfinity;
 
             var defaultTask = GetSummaryForProcessorAsync(DefaultPaymentsSetKey, fromScore, toScore);
             var fallbackTask = GetSummaryForProcessorAsync(FallbackPaymentsSetKey, fromScore, toScore);
@@ -89,13 +89,13 @@ namespace rinha_2025_rafael.Infrastructure.Cache
             }
 
             long totalRequests = entries.Length;
-            double totalAmount = 0;
+            decimal totalAmount = 0;
 
             foreach(var entry in entries)
             {
                 // Extrai o valor do amount da string formatada
                 var parts = entry.ToString().Split(':');
-                if(parts.Length == 2 && double.TryParse(parts[1], CultureInfo.InvariantCulture, out var amount))
+                if(parts.Length == 2 && decimal.TryParse(parts[1], CultureInfo.InvariantCulture, out var amount))
                 {
                     totalAmount += amount;
                 }

@@ -1,5 +1,4 @@
-﻿using rinha_2025_rafael.CrossCutting;
-using rinha_2025_rafael.Domain;
+﻿using rinha_2025_rafael.Domain;
 using rinha_2025_rafael.Domain.Enum;
 using rinha_2025_rafael.Infrastructure.Cache;
 using rinha_2025_rafael.Infrastructure.Clients;
