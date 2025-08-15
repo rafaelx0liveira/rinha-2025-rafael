@@ -1,4 +1,5 @@
 ﻿using rinha_2025_rafael.Domain;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace rinha_2025_rafael.CrossCutting
@@ -13,5 +14,9 @@ namespace rinha_2025_rafael.CrossCutting
     [JsonSerializable(typeof(SummaryDetails))]
     public partial class JsonContext : JsonSerializerContext
     {
+        public static JsonSerializerOptions DefaultOptions { get; } = new()
+        {
+            TypeInfoResolver = JsonContext.Default
+        };
     }
 }

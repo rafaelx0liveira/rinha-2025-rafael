@@ -12,15 +12,19 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         private readonly IDatabase _db;
         private const string PaymentQueueKey = "payments_queue";
         private const string SummaryHashKey = "summary"; // Chave para hash de resumo
+        private readonly ILogger<RedisService> _logger;
 
-        public RedisService(IConnectionMultiplexer redis)
+        public RedisService(IConnectionMultiplexer redis, ILogger<RedisService> logger)
         {
             _db = redis.GetDatabase();
+            _logger = logger;
         }
 
         public async Task EnqueuePaymentAsync(PaymentRequest request)
         {
-            var payload = JsonSerializer.Serialize(request, JsonContext.Default.PaymentRequest);
+            _logger.LogInformation($"[REDIS] - Enfileirando pagamento {request.CorrelationId}");
+
+            var payload = JsonSerializer.Serialize(request, JsonContext.DefaultOptions);
 
             // Adiciona elemento no início (à esquerda) para o Worker pegar o do final (à direita).
             await _db.ListLeftPushAsync(PaymentQueueKey, payload);
@@ -32,10 +36,15 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         public async Task UpdateSummaryAsync(ProcessorType processorType, decimal amount)
         {
             var processorName = processorType.ToString().ToLower();
+            
+            _logger.LogInformation($"[REDIS] - Incrementando contador de pagamentos {processorName}");
 
             // Nomes dos campos dentro do Hash
             var totalRequestsField = $"{processorName}:totalRequests";
             var totalAmountField = $"{processorName}:totalAmount";
+
+            _logger.LogInformation($"[REDIS] - Total de requisições do processador {processorName}: {totalRequestsField}");
+            _logger.LogInformation($"[REDIS] - Total da quantia do processador {processorName}: {totalAmountField}");
 
             // Cria uma transação para garantir que ambas as atualizações sejam atômicas.
             // Embora os comandos INCR sejam atômicos, usar uma transação (BATCH/EXEC) garante

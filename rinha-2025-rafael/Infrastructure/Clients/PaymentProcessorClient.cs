@@ -41,9 +41,9 @@ namespace rinha_2025_rafael.Infrastructure.Clients
             };
 
             var uri = GetProcessorUri(processorType, "/payments");
-            _logger.LogInformation($"Enviando pagamento {request.CorrelationId} para {uri}");
+            _logger.LogInformation($"[CLIENT] - Enviando pagamento {request.CorrelationId} para {uri}");
 
-            var jsonPayload = JsonSerializer.Serialize(processorPayload, JsonContext.Default.PaymentProcessorPayload);
+            var jsonPayload = JsonSerializer.Serialize(processorPayload, JsonContext.DefaultOptions);
 
             using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
@@ -62,12 +62,12 @@ namespace rinha_2025_rafael.Infrastructure.Clients
             {
                 var responseStream = await _httpClient.GetStreamAsync(uri);
 
-                var healthResponse = await JsonSerializer.DeserializeAsync(responseStream, JsonContext.Default.HealthCheckResponse);
+                var healthResponse = await JsonSerializer.DeserializeAsync<HealthCheckResponse>(responseStream, JsonContext.DefaultOptions);
                 return healthResponse;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Falha ao obter health check de {uri}");
+                _logger.LogWarning(ex, $"[CLIENT] - Falha ao obter health check de {uri}");
                 throw;
             }
         }

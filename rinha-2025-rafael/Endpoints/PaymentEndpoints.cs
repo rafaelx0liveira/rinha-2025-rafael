@@ -9,7 +9,7 @@ namespace rinha_2025_rafael.Endpoints
     {
         public static void MapPaymentsEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("/payments");
+            var group = app.MapGroup("/payments"); 
 
             // Endpoint: POST /payments
             // Recebe e enfileira um pagamento para processamento assíncrono.

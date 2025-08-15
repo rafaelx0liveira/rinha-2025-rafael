@@ -19,7 +19,7 @@ namespace rinha_2025_rafael.Workers
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Health Check Sentinel iniciado...");
+            _logger.LogInformation("[HEALTH] - Health Check Sentinel iniciado...");
             await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -28,7 +28,7 @@ namespace rinha_2025_rafael.Workers
                 var client = scope.ServiceProvider.GetRequiredService<IPaymentProcessorClient>();
                 var circuitBreaker = scope.ServiceProvider.GetRequiredService<ICircuitBreakerService>();
 
-                _logger.LogInformation("Executando verificação da saúde dos processadores...");
+                _logger.LogInformation("[HEALTH] - Executando verificação da saúde dos processadores...");
 
                 // Executa as duas verificações em paralelo para otimizar o tempo.
                 var defaultCheckTask = CheckProcessorHealthAsync(ProcessorType.DEFAULT, client, circuitBreaker);
@@ -56,19 +56,19 @@ namespace rinha_2025_rafael.Workers
                 {
                     // Se o serviço está saudável, registramos o sucesso no Circuit Breaker.
                     await circuitBreaker.RecordSuccessAsync(processorType);
-                    _logger.LogInformation("Processador {ProcessorType} está saudável.", processorType);
+                    _logger.LogInformation($"[HEALTH] - Processador {processorType} está saudável.");
                 }
                 else
                 {
                     // Se a API reporta falha, abrimos o circuito.
                     await circuitBreaker.OpenCircuitAsync(processorType);
-                    _logger.LogWarning("Processador {ProcessorType} reportou falha. Abrindo o circuito.", processorType);
+                    _logger.LogWarning($"[HEALTH] - Processador {processorType} reportou falha. Abrindo o circuito.");
                 }
             }
             catch (Exception ex)
             {
                 // Se qualquer exceção ocorrer (timeout, erro de rede, etc.), abrimos o circuito.
-                _logger.LogError(ex, "Falha ao verificar saúde do processador {ProcessorType}. Abrindo o circuito.", processorType);
+                _logger.LogError(ex, $"[HEALTH] - Falha ao verificar saúde do processador {processorType}. Abrindo o circuito.");
                 await circuitBreaker.OpenCircuitAsync(processorType);
             }
         }
