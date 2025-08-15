@@ -14,7 +14,7 @@ namespace rinha_2025_rafael.Application.GetSummaryUseCase
 
         public async Task<PaymentSummaryResponse> ExecuteAsync(DateTime? from, DateTime? to)
         {
-            return await _redisService.GetSummaryAsync();
+            return await _redisService.GetSummaryAsync(from, to);
         }
     }
 }

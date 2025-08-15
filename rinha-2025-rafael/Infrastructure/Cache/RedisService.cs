@@ -12,6 +12,8 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         private const string PaymentQueueKey = "payments_queue";
         private readonly JsonSerializerOptions _jsonOptions;
         private const string SummaryHashKey = "summary"; // Chave para hash de resumo
+        private const string DefaultPaymentsSetKey = "payments:default";
+        private const string FallbackPaymentsSetKey = "payments:fallback";
         private readonly ILogger<RedisService> _logger;
         private readonly IDatabase _db;
 
@@ -35,67 +37,6 @@ namespace rinha_2025_rafael.Infrastructure.Cache
         }
 
         /// <summary>
-        /// Atualiza atomicamente o resumo de pagamentos no Redis.
-        /// </summary>
-        public async Task UpdateSummaryAsync(ProcessorType processorType, decimal amount)
-        {
-            var processorName = processorType.ToString().ToLower();
-            
-            _logger.LogInformation($"[REDIS] - Incrementando contador de pagamentos {processorName}");
-
-            // Nomes dos campos dentro do Hash
-            var totalRequestsField = $"{processorName}:totalRequests";
-            var totalAmountField = $"{processorName}:totalAmount";
-
-            _logger.LogInformation($"[REDIS] - Total de requisições do processador {processorName}: {totalRequestsField}");
-            _logger.LogInformation($"[REDIS] - Total da quantia do processador {processorName}: {totalAmountField}");
-
-            // Cria uma transação para garantir que ambas as atualizações sejam atômicas.
-            // Embora os comandos INCR sejam atômicos, usar uma transação (BATCH/EXEC) garante
-            // que nenhuma outra operação possa ocorrer entre eles.
-            var tran = _db.CreateTransaction();
-
-            // Incrementa o contador de requisições.
-            _ = tran.HashIncrementAsync(SummaryHashKey, totalRequestsField, 1);
-
-            // Incrementa o valor total. Note a conversão para double.
-            _ = tran.HashIncrementAsync(SummaryHashKey, totalAmountField, (double)amount);
-
-            // Executa a transação.
-            await tran.ExecuteAsync();
-        }
-
-        /// <summary>
-        /// Busca os dados do resumo do Redis e os mapeia para o objeto de resposta.
-        /// </summary>
-        public async Task<PaymentSummaryResponse> GetSummaryAsync()
-        {
-            var summaryHash = await _db.HashGetAllAsync(SummaryHashKey);
-
-            if (summaryHash.Length == 0)
-            {
-                // Se não houver dados, retorna um objeto zerado.
-                return new PaymentSummaryResponse(new SummaryDetails(0, 0), new SummaryDetails(0, 0));
-            }
-
-            // Converte o array de HashEntry para um dicionário para facilitar o acesso.
-            var summaryDict = summaryHash.ToDictionary(h => h.Name.ToString(), h => h.Value);
-
-            // Lê os valores do dicionário, fazendo o parse para os tipos corretos.
-            var defaultDetails = new SummaryDetails(
-                long.Parse(summaryDict.GetValueOrDefault("default:totalRequests", "0")!),
-                double.Parse(summaryDict.GetValueOrDefault("default:totalAmount", "0.0")!, CultureInfo.InvariantCulture)
-            );
-
-            var fallbackDetails = new SummaryDetails(
-                long.Parse(summaryDict.GetValueOrDefault("fallback:totalRequests", "0")!),
-                double.Parse(summaryDict.GetValueOrDefault("fallback:totalAmount", "0.0")!, CultureInfo.InvariantCulture)
-            );
-
-            return new PaymentSummaryResponse(defaultDetails, fallbackDetails);
-        }
-
-        /// <summary>
         /// Reenfileira um pagamento no início da fila para que ele seja processado novamente.
         /// Usa LPUSH para garantir que ele tenha prioridade na próxima iteração do worker.
         /// </summary>
@@ -106,5 +47,62 @@ namespace rinha_2025_rafael.Infrastructure.Cache
             // LPUSH para colocar de volta no início (à esquerda).
             await _db.ListLeftPushAsync(PaymentQueueKey, payload);
         }
+
+        /// <summary>
+        /// Registra um pagamento processado em um Sorted Set para permitir consultas por data.
+        /// </summary>
+        public async Task RecordPaymentAsync(ProcessorType processorType, PaymentRequest request, DateTime timestamp)
+        {
+            var key = processorType == ProcessorType.DEFAULT ? DefaultPaymentsSetKey : FallbackPaymentsSetKey;
+
+            double score = new DateTimeOffset(timestamp).ToUnixTimeSeconds();
+
+            string value = $"{request.CorrelationId}:{request.Amount.ToString(CultureInfo.InvariantCulture)}";
+
+            await _db.SortedSetAddAsync(key, value, score);
+        }
+
+        /// <summary>
+        /// Busca o resumo, aplicando o filtro de data se fornecido.
+        /// </summary>
+        public async Task<PaymentSummaryResponse> GetSummaryAsync(DateTime? from, DateTime? to)
+        {
+            var fromScore = from.HasValue ? new DateTimeOffset(from.Value).ToUnixTimeSeconds() : double.NegativeInfinity;
+            var toScore = to.HasValue ? new DateTimeOffset(to.Value).ToUnixTimeSeconds() : double.PositiveInfinity;
+
+            var defaultTask = GetSummaryForProcessorAsync(DefaultPaymentsSetKey, fromScore, toScore);
+            var fallbackTask = GetSummaryForProcessorAsync(FallbackPaymentsSetKey, fromScore, toScore);
+
+            await Task.WhenAll(defaultTask, fallbackTask);
+
+            return new PaymentSummaryResponse(defaultTask.Result, fallbackTask.Result);
+        }
+
+        private async Task<SummaryDetails> GetSummaryForProcessorAsync(string key, double fromScore, double toScore)
+        {
+            // ZRANGEBYSCORE busca todos os membros dentro do intervalo de scores (timestamp)
+            var entries = await _db.SortedSetRangeByScoreAsync(key, fromScore, toScore);
+
+            if(entries.Length == 0)
+            {
+                return new SummaryDetails(0, 0);
+            }
+
+            long totalRequests = entries.Length;
+            double totalAmount = 0;
+
+            foreach(var entry in entries)
+            {
+                // Extrai o valor do amount da string formatada
+                var parts = entry.ToString().Split(':');
+                if(parts.Length == 2 && double.TryParse(parts[1], CultureInfo.InvariantCulture, out var amount))
+                {
+                    totalAmount += amount;
+                }
+            }
+
+            return new SummaryDetails(totalRequests, totalAmount);
+        }
+
     }
 }

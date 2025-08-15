@@ -67,7 +67,7 @@ namespace rinha_2025_rafael.Workers
 
                                     _logger.LogInformation($"[WORKER] - Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Default.");
 
-                                    await redisService.UpdateSummaryAsync(ProcessorType.DEFAULT, paymentRequest.Amount);
+                                    await redisService.RecordPaymentAsync(ProcessorType.DEFAULT, paymentRequest, DateTime.UtcNow);
                                     processed = true;
                                 }
                                 catch (Exception ex)
@@ -89,7 +89,7 @@ namespace rinha_2025_rafael.Workers
 
                                     _logger.LogInformation($"[WORKER] - Pagamento {paymentRequest.CorrelationId} processado com sucesso pelo Fallback.");
 
-                                    await redisService.UpdateSummaryAsync(ProcessorType.FALLBACK, paymentRequest.Amount);
+                                    await redisService.RecordPaymentAsync(ProcessorType.FALLBACK, paymentRequest, DateTime.UtcNow);
                                     processed = true;
                                 }
                                 catch (Exception ex)
