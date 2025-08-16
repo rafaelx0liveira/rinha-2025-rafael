@@ -89,8 +89,12 @@ namespace rinha_2025_rafael.CrossCutting
 
         private static IServiceCollection AddClients(this IServiceCollection services)
         {
-            services.AddHttpClient<IPaymentProcessorClient, PaymentProcessorClient>()
-                .ConfigurePrimaryHttpMessageHandler(() =>
+            services.AddHttpClient<IPaymentProcessorClient, PaymentProcessorClient>(client =>
+            {
+                // Se uma requisição demorar mais de 10s, ela será cancelada
+                client.Timeout = TimeSpan.FromSeconds(60);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() =>
                 {
                     return new HttpClientHandler
                     {
